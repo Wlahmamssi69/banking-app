@@ -1,11 +1,12 @@
 package com.example.ebank;
-
 import com.example.ebank.entities.*;
 import com.example.ebank.enums.AccountStatus;
 import com.example.ebank.enums.OperationType;
+import com.example.ebank.exceptions.BalanceNotSufficientException;
 import com.example.ebank.repositories.BankAccountRepository;
 import com.example.ebank.repositories.CustomerRepository;
 import com.example.ebank.repositories.OperationRepository;
+import com.example.ebank.service.BankAccountService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -26,70 +27,40 @@ public class EbankApplication {
 
     @Bean
     CommandLineRunner start(
-            CustomerRepository customerRepository,
-            BankAccountRepository accountRepository,
-            OperationRepository operationRepository
+            BankAccountService bankAccountService,
+            BankAccountRepository accountRepository
     ){
-        return args->{
+        return args-> {
 
-            Stream.of("Ahmed","Mohamed","Douaa").forEach(
-                    name->{
-                        Customer customer= new Customer();
+            Stream.of("Ahmed", "Mohamed", "Douaa").forEach(
+                    name -> {
+                        Customer customer = new Customer();
                         customer.setFullName(name);
-                        customer.setEmail(name+"@gmail.com");
-                        customerRepository.save(customer);
+                        customer.setEmail(name + "@gmail.com");
+                        bankAccountService.saveCustomer(customer);
                     }
             );
 
-            customerRepository.findAll().forEach(customer -> {
 
-                SavingAccount SA=new SavingAccount();
-                SA.setBalance(Math.random()*90000);
-                SA.setCustomer(customer);
-                SA.setCurrency("MAD");
-                SA.setAccountStatus(AccountStatus.CREATED);
-                SA.setCreatedAt(new Date());
-                SA.setInterestRate(2.5);
-                accountRepository.save(SA);
+            bankAccountService.customersList().forEach(customer -> {
 
+                        bankAccountService.saveSavingAccount(Math.random() * 9000, 2.5, customer.getId());
+                        bankAccountService.saveCurrentAccount(Math.random() * 90000, 8000.0, customer.getId());
+                    });
 
-                CurrentAccount CA=new CurrentAccount();
-                CA.setBalance(Math.random()*90000);
-                CA.setCustomer(customer);
-                CA.setCreatedAt(new Date());
-                CA.setAccountStatus(AccountStatus.CREATED);
-                CA.setCurrency("MAD");
-                CA.setOverDraft(Math.random()*9000);
-                accountRepository.save(CA);
-
-            });
 
 
             accountRepository.findAll().forEach(account->{
+                try {
+                    bankAccountService.debit(Math.random()*900,account.getId());
+                    bankAccountService.credit(Math.random()*900, account.getId());
 
-                operationRepository.saveAll(
-                        List.of(
-                                Operation.builder()
-                                        .account(account)
-                                        .OperationType(OperationType.DEBIT)
-                                        .amount(Math.random()*900)
-                                        .operationDate(new Date())
-                                        .build(),
-                                Operation.builder()
-                                        .account(account)
-                                        .OperationType(OperationType.CREDIT)
-                                        .amount(Math.random()*900)
-                                        .operationDate(new Date())
-                                        .build()
-                        )
-
-
-
-                );
+                } catch (BalanceNotSufficientException e) {
+                    throw new RuntimeException(e);
+                }
             });
 
 
 
-        };
-    }
-}
+    };
+    }}
